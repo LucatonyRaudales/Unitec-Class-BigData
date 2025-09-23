@@ -1,6 +1,11 @@
-# Data sources
-data "aws_availability_zones" "available" {
-  state = "available"
+# Data sources - Commented out due to permissions issue
+# data "aws_availability_zones" "available" {
+#   state = "available"
+# }
+
+# Hardcoded availability zones for us-east-1
+locals {
+  availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1e", "us-east-1f"]
 }
 
 # Random ID for bucket naming
@@ -15,7 +20,7 @@ module "vpc" {
   project_name       = var.project_name
   vpc_cidr           = var.vpc_cidr
   public_subnets     = var.public_subnets
-  availability_zones = data.aws_availability_zones.available.names
+  availability_zones = local.availability_zones
 }
 
 # S3 Module
