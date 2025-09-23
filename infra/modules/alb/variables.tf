@@ -18,10 +18,6 @@ variable "security_group_ids" {
   type        = list(string)
 }
 
-variable "target_group_arn" {
-  description = "ARN of the target group"
-  type        = string
-}
 
 variable "target_instance_id" {
   description = "ID of the target EC2 instance"

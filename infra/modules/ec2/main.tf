@@ -15,12 +15,11 @@ data "aws_ami" "amazon_linux" {
 }
 
 # User data template
-data "template_file" "user_data" {
-  template = file("${path.module}/../templates/user_data.sh.tftpl")
-  vars = {
+locals {
+  user_data = templatefile("${path.root}/templates/user_data.sh.tftpl", {
     dataset_bucket_name = var.dataset_bucket_name
     dataset_s3_key      = var.dataset_s3_key
-  }
+  })
 }
 
 # EC2 Instance
@@ -31,7 +30,7 @@ resource "aws_instance" "main" {
   vpc_security_group_ids = var.security_group_ids
   iam_instance_profile   = var.iam_instance_profile
 
-  user_data = data.template_file.user_data.rendered
+  user_data = local.user_data
 
   root_block_device {
     volume_type = "gp3"
