@@ -41,11 +41,11 @@ resource "aws_security_group" "ec2" {
   vpc_id      = var.vpc_id
 
   ingress {
-    description     = "HTTP from ALB"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = [var.alb_security_group]
+    description = "HTTP from anywhere"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   # SSH access only if allowed_ssh_cidr is provided

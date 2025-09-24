@@ -53,10 +53,10 @@ output "dataset_bucket_arn" {
 }
 
 # WAF Outputs
-output "waf_web_acl_arn" {
-  description = "ARN of the WAF Web ACL"
-  value       = module.waf.web_acl_arn
-}
+# output "waf_web_acl_arn" {
+#   description = "ARN of the WAF Web ACL"
+#   value       = module.waf.web_acl_arn
+# }
 
 # CloudWatch Outputs
 output "cloudwatch_log_group_name" {

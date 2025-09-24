@@ -38,7 +38,7 @@ module "security" {
   project_name       = var.project_name
   vpc_id             = module.vpc.vpc_id
   allowed_ssh_cidr   = var.allowed_ssh_cidr
-  alb_security_group = "placeholder" # Will be updated after ALB is created
+  alb_security_group = null
 }
 
 # EC2 Module
@@ -72,15 +72,15 @@ module "alb" {
   depends_on = [module.ec2, module.s3]
 }
 
-# WAF Module
-module "waf" {
-  source = "./modules/waf"
+# WAF Module (Optional - comment out if WAF is not available in your region)
+# module "waf" {
+#   source = "./modules/waf"
 
-  project_name = var.project_name
-  alb_arn      = module.alb.alb_arn
-  ip_deny_list = var.waf_ip_deny_list
-  rate_limit   = var.waf_rate_limit
-}
+#   project_name = var.project_name
+#   alb_arn      = module.alb.alb_arn
+#   ip_deny_list = var.waf_ip_deny_list
+#   rate_limit   = var.waf_rate_limit
+# }
 
 # CloudWatch Module
 module "cloudwatch" {
