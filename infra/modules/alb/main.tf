@@ -8,11 +8,11 @@ resource "aws_lb" "main" {
 
   enable_deletion_protection = false
 
-  access_logs {
-    bucket  = var.alb_logs_bucket_name
-    prefix  = "alb-logs"
-    enabled = true
-  }
+  # access_logs {
+  #   bucket  = var.alb_logs_bucket_name
+  #   prefix  = "alb-logs"
+  #   enabled = true
+  # }
 
   tags = {
     Name = "${var.project_name}-alb"
