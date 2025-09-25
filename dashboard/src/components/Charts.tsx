@@ -31,7 +31,7 @@ export function Charts({ stats }: ChartsProps) {
   const severityColors = ['#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
   const countryColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color?: string }[]; label?: string }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-white/90 backdrop-blur-xl rounded-xl p-4 shadow-2xl border border-white/20">
@@ -105,10 +105,10 @@ export function Charts({ stats }: ChartsProps) {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={(props: any) => {
-                    const { name, percent } = props;
-                    return `${name} ${(percent * 100).toFixed(0)}%`;
-                  }}
+                     label={(props: any) => {
+                       const { name, percent } = props;
+                       return `${name} ${(percent * 100).toFixed(0)}%`;
+                     }}
                   outerRadius={90}
                   fill="#8884d8"
                   dataKey="value"
