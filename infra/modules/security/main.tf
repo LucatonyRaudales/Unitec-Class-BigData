@@ -48,8 +48,6 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # CAMBIO: Agregar puerto 80 para Next.js desde ALB (ya existe, pero asegurar)
-  # El puerto 80 ya está permitido en la regla anterior
 
   # SSH access only if allowed_ssh_cidr is provided
   dynamic "ingress" {
@@ -79,7 +77,7 @@ resource "aws_security_group" "ec2" {
   }
 }
 
-# CAMBIO: Regla específica para permitir tráfico desde ALB a EC2 en puerto 80
+# Security group rule for ALB to EC2 communication
 resource "aws_security_group_rule" "alb_to_ec2_nextjs" {
   type                     = "ingress"
   from_port                = 80

@@ -1,9 +1,4 @@
-# Data sources - Commented out due to permissions issue
-# data "aws_availability_zones" "available" {
-#   state = "available"
-# }
-
-# Hardcoded availability zones for us-east-1
+# Availability zones for us-east-1
 locals {
   availability_zones = ["us-east-1a", "us-east-1b", "us-east-1c", "us-east-1d", "us-east-1e", "us-east-1f"]
 }
@@ -41,20 +36,6 @@ module "security" {
   alb_security_group = null
 }
 
-# EC2 Module (Flask) - DISABLED
-# module "ec2" {
-#   source = "./modules/ec2"
-
-#   project_name         = var.project_name
-#   instance_type        = var.instance_type
-#   subnet_id            = module.vpc.public_subnet_ids[0]
-#   security_group_ids   = [module.security.ec2_security_group_id]
-#   iam_instance_profile = module.s3.iam_instance_profile_name
-#   dataset_bucket_name  = module.s3.bucket_name
-#   dataset_s3_key       = "data/cyber_attacks_masked.csv"
-
-#   depends_on = [module.s3]
-# }
 
 # EC2 NextJS Module
 module "ec2_nextjs" {
@@ -87,15 +68,6 @@ module "alb" {
   depends_on = [module.ec2_nextjs, module.s3]
 }
 
-# WAF Module (Optional - comment out if WAF is not available in your region)
-# module "waf" {
-#   source = "./modules/waf"
-
-#   project_name = var.project_name
-#   alb_arn      = module.alb.alb_arn
-#   ip_deny_list = var.waf_ip_deny_list
-#   rate_limit   = var.waf_rate_limit
-# }
 
 # CloudWatch Module
 module "cloudwatch" {
@@ -108,7 +80,7 @@ module "cloudwatch" {
   sns_topic_arn       = var.enable_sns ? module.sns[0].topic_arn : null
 }
 
-# ACM Module (Optional)
+# ACM Module
 module "acm" {
   count = var.enable_acm ? 1 : 0
 
@@ -119,7 +91,7 @@ module "acm" {
   hosted_zone_id = var.hosted_zone_id
 }
 
-# SNS Module (Optional)
+# SNS Module
 module "sns" {
   count = var.enable_sns ? 1 : 0
 
