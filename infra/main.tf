@@ -41,12 +41,27 @@ module "security" {
   alb_security_group = null
 }
 
-# EC2 Module
-module "ec2" {
-  source = "./modules/ec2"
+# EC2 Module (Flask) - DISABLED
+# module "ec2" {
+#   source = "./modules/ec2"
+
+#   project_name         = var.project_name
+#   instance_type        = var.instance_type
+#   subnet_id            = module.vpc.public_subnet_ids[0]
+#   security_group_ids   = [module.security.ec2_security_group_id]
+#   iam_instance_profile = module.s3.iam_instance_profile_name
+#   dataset_bucket_name  = module.s3.bucket_name
+#   dataset_s3_key       = "data/cyber_attacks_masked.csv"
+
+#   depends_on = [module.s3]
+# }
+
+# EC2 NextJS Module
+module "ec2_nextjs" {
+  source = "./modules/ec2-nextjs"
 
   project_name         = var.project_name
-  instance_type        = var.instance_type
+  instance_type        = "t3.micro"
   subnet_id            = module.vpc.public_subnet_ids[0]
   security_group_ids   = [module.security.ec2_security_group_id]
   iam_instance_profile = module.s3.iam_instance_profile_name
@@ -64,12 +79,12 @@ module "alb" {
   vpc_id               = module.vpc.vpc_id
   subnet_ids           = module.vpc.public_subnet_ids
   security_group_ids   = [module.security.alb_security_group_id]
-  target_instance_id   = module.ec2.instance_id
+  target_instance_id   = module.ec2_nextjs.instance_id
   enable_acm           = var.enable_acm
   certificate_arn      = var.enable_acm ? module.acm[0].certificate_arn : null
   alb_logs_bucket_name = module.s3.alb_logs_bucket_name
 
-  depends_on = [module.ec2, module.s3]
+  depends_on = [module.ec2_nextjs, module.s3]
 }
 
 # WAF Module (Optional - comment out if WAF is not available in your region)
@@ -87,7 +102,7 @@ module "cloudwatch" {
   source = "./modules/cloudwatch"
 
   project_name        = var.project_name
-  instance_id         = module.ec2.instance_id
+  instance_id         = module.ec2_nextjs.instance_id
   alarm_cpu_threshold = var.alarm_cpu_threshold
   enable_sns          = var.enable_sns
   sns_topic_arn       = var.enable_sns ? module.sns[0].topic_arn : null

@@ -25,20 +25,20 @@ output "alb_arn" {
   value       = module.alb.alb_arn
 }
 
-# EC2 Outputs
-output "ec2_instance_id" {
-  description = "ID of the EC2 instance"
-  value       = module.ec2.instance_id
+# EC2 Outputs (NextJS)
+output "nextjs_instance_id" {
+  description = "ID of the NextJS EC2 instance"
+  value       = module.ec2_nextjs.instance_id
 }
 
-output "ec2_public_ip" {
-  description = "Public IP of the EC2 instance"
-  value       = module.ec2.public_ip
+output "nextjs_public_ip" {
+  description = "Public IP of the NextJS EC2 instance"
+  value       = module.ec2_nextjs.public_ip
 }
 
-output "ec2_private_ip" {
-  description = "Private IP of the EC2 instance"
-  value       = module.ec2.private_ip
+output "nextjs_private_ip" {
+  description = "Private IP of the NextJS EC2 instance"
+  value       = module.ec2_nextjs.private_ip
 }
 
 # S3 Outputs

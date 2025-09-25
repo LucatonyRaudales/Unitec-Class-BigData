@@ -1,0 +1,107 @@
+#!/bin/bash
+set -e
+
+# Log everything
+exec > >(tee /var/log/deploy-dashboard.log) 2>&1
+
+echo "Starting Dashboard deployment at $(date)"
+
+# Update system
+dnf update -y
+
+# Install Node.js 18
+curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
+dnf install -y nodejs
+
+# Install Git
+dnf install -y git
+
+# Install AWS CLI
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+./aws/install
+
+# Create application directory
+mkdir -p /opt/cyber-dashboard
+cd /opt/cyber-dashboard
+
+# Clone the Next.js application from GitHub
+REPO_URL="https://github.com/LucatonyRaudales/Unitec-Class-BigData.git"
+git clone $REPO_URL .
+
+# Navigate to the Next.js project directory
+cd cyber-dashboard
+
+# Install dependencies
+npm install
+
+# Build the application
+npm run build
+
+# Install PM2 for process management
+npm install -g pm2
+
+# Create PM2 ecosystem file
+cat > ecosystem.config.js << 'EOF'
+module.exports = {
+  apps: [{
+    name: 'cyber-dashboard',
+    script: 'npm',
+    args: 'start',
+    cwd: '/opt/cyber-dashboard/cyber-dashboard',
+    instances: 1,
+    autorestart: true,
+    watch: false,
+    max_memory_restart: '1G',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000,
+      DATASET_S3_BUCKET: '${dataset_bucket_name}',
+      DATASET_S3_KEY: '${dataset_s3_key}'
+    }
+  }]
+};
+EOF
+
+# Start the application with PM2
+pm2 start ecosystem.config.js
+
+# Save PM2 process list
+pm2 save
+
+# Configure PM2 to start on boot
+pm2 startup systemd -u root --hp /root
+
+# Install and configure Nginx as reverse proxy
+dnf install -y nginx
+
+# Configure Nginx
+cat > /etc/nginx/conf.d/cyber-dashboard.conf << 'EOF'
+server {
+    listen 80;
+    server_name _;
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+EOF
+
+# Start and enable Nginx
+systemctl start nginx
+systemctl enable nginx
+
+# Configure firewall
+firewall-cmd --permanent --add-service=http
+firewall-cmd --permanent --add-service=https
+firewall-cmd --reload
+
+echo "Dashboard deployment completed at $(date)"
