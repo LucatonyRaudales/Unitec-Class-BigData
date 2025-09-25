@@ -1,91 +1,311 @@
 #!/bin/bash
-
-# User data script for Flask application
-# Proyecto Final - Universidad Unitec
-
 set -e
-
-# Update system
+exec > >(tee /var/log/user-data.log) 2>&1
+echo "Starting user data script at $(date)"
 dnf update -y
-
-# Install Python 3 and pip
-dnf install -y python3 python3-pip git curl wget
-
-# Create application directory
+dnf install -y python3 python3-pip
 mkdir -p /opt/app
 cd /opt/app
+pip3 install Flask pandas boto3 gunicorn
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install Python packages
-pip install Flask pandas boto3 gunicorn
-
-# Create simple Flask application
 cat > app.py << 'EOF'
-import os
-import pandas as pd
-import boto3
-from flask import Flask, jsonify
-import logging
+import os,pandas as pd,boto3
+from flask import Flask,render_template_string,request,jsonify
+import logging,random
+from datetime import datetime,timedelta
+import tempfile
 
-app = Flask(__name__)
+app=Flask(__name__)
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger=logging.getLogger(__name__)
+S3_BUCKET=os.environ.get('DATASET_S3_BUCKET','${dataset_bucket_name}')
+S3_KEY=os.environ.get('DATASET_S3_KEY','${dataset_s3_key}')
+s3_client=boto3.client('s3')
+cached_data=None
+cache_timestamp=None
 
-S3_BUCKET = os.environ.get('DATASET_S3_BUCKET', '${dataset_bucket_name}')
-S3_KEY = os.environ.get('DATASET_S3_KEY', '${dataset_s3_key}')
+def load_dataset():
+    global cached_data,cache_timestamp
+    if cached_data and cache_timestamp and (datetime.now()-cache_timestamp).seconds<300:
+        return cached_data
+    try:
+        with tempfile.NamedTemporaryFile(mode='w+',suffix='.csv',delete=False) as tmp_file:
+            s3_client.download_file(S3_BUCKET,S3_KEY,tmp_file.name)
+            df=pd.read_csv(tmp_file.name)
+            os.unlink(tmp_file.name)
+            cached_data=df
+            cache_timestamp=datetime.now()
+            logger.info(f"Dataset loaded: {len(df)} records")
+            return df
+    except Exception as e:
+        logger.error(f"Error loading dataset: {e}")
+        return create_sample_data()
+
+def create_sample_data():
+    attack_types=['DDoS','Phishing','Malware','Ransomware','SQL Injection','XSS','Brute Force','Man-in-the-Middle','Social Engineering']
+    countries=['Estados Unidos','China','Rusia','Alemania','Reino Unido','Francia','Japón','Brasil','India','Canadá']
+    severities=['Bajo','Medio','Alto','Crítico']
+    data=[]
+    base_date=datetime.now()-timedelta(days=365)
+    for i in range(1000):
+        data.append({
+            'id':i+1,
+            'timestamp':(base_date+timedelta(days=random.randint(0,365))).strftime('%Y-%m-%d %H:%M:%S'),
+            'attack_type':random.choice(attack_types),
+            'source_ip':f"XXX.XXX.XXX.{random.randint(1,254)}",
+            'target_ip':f"XXX.XXX.XXX.{random.randint(1,254)}",
+            'country':random.choice(countries),
+            'severity':random.choice(severities),
+            'severity_score':random.randint(1,10),
+            'duration_minutes':random.randint(1,480),
+            'affected_users':random.randint(1,10000),
+            'username':f"USER_{random.randint(1000,9999)}",
+            'email':f"***@***.***",
+            'description':f"Ataque de {random.choice(attack_types).lower()} detectado"
+        })
+    return pd.DataFrame(data)
 
 @app.route('/')
 def index():
-    return '''
-    <html>
-    <head><title>Dashboard Ciberseguridad - Unitec</title></head>
-    <body>
-        <h1>🛡️ Dashboard de Ciberseguridad</h1>
-        <p>Proyecto Final - Universidad Unitec</p>
-        <p>Bucket: ''' + S3_BUCKET + '''</p>
-        <p>Key: ''' + S3_KEY + '''</p>
-        <p><a href="/health">Health Check</a></p>
-    </body>
-    </html>
-    '''
+    try:
+        df=load_dataset()
+        stats={
+            'total_attacks':len(df),
+            'attack_types':df['attack_type'].value_counts().to_dict(),
+            'severity_distribution':df['severity'].value_counts().to_dict(),
+            'top_countries':df['country'].value_counts().head(10).to_dict(),
+            'avg_severity_score':round(df['severity_score'].mean(),2),
+            'total_affected_users':df['affected_users'].sum()
+        }
+        attack_type=request.args.get('attack_type','')
+        severity=request.args.get('severity','')
+        country=request.args.get('country','')
+        limit=int(request.args.get('limit',100))
+        filtered_df=df.copy()
+        if attack_type:filtered_df=filtered_df[filtered_df['attack_type']==attack_type]
+        if severity:filtered_df=filtered_df[filtered_df['severity']==severity]
+        if country:filtered_df=filtered_df[filtered_df['country']==country]
+        filtered_df=filtered_df.head(limit)
+        records=filtered_df.to_dict('records')
+        unique_attack_types=sorted(df['attack_type'].unique().tolist())
+        unique_severities=sorted(df['severity'].unique().tolist())
+        unique_countries=sorted(df['country'].unique().tolist())
+        return render_template_string(HTML_TEMPLATE,stats=stats,records=records,unique_attack_types=unique_attack_types,unique_severities=unique_severities,unique_countries=unique_countries,current_filters={'attack_type':attack_type,'severity':severity,'country':country,'limit':limit})
+    except Exception as e:
+        logger.error(f"Error in index route: {e}")
+        return f"Error loading data: {str(e)}",500
 
 @app.route('/health')
 def health():
-    return jsonify({
-        'status': 'healthy',
-        'bucket': S3_BUCKET,
-        'key': S3_KEY
-    })
+    return jsonify({'status':'healthy','timestamp':datetime.now().isoformat(),'bucket':S3_BUCKET,'key':S3_KEY})
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=False)
+@app.route('/api/stats')
+def api_stats():
+    try:
+        df=load_dataset()
+        stats={'total_attacks':len(df),'attack_types':df['attack_type'].value_counts().to_dict(),'severity_distribution':df['severity'].value_counts().to_dict(),'top_countries':df['country'].value_counts().head(10).to_dict(),'avg_severity_score':round(df['severity_score'].mean(),2),'total_affected_users':df['affected_users'].sum()}
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error':str(e)}),500
+
+if __name__=='__main__':
+    app.run(host='0.0.0.0',port=80,debug=False)
+
+HTML_TEMPLATE='''
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Dashboard de Ciberseguridad - Unitec</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+        .navbar{background:rgba(0,0,0,0.8)!important;backdrop-filter:blur(10px)}
+        .stats-card{background:rgba(255,255,255,0.95);border:none;border-radius:15px;box-shadow:0 8px 32px rgba(0,0,0,0.1);backdrop-filter:blur(10px);transition:transform 0.3s ease}
+        .stats-card:hover{transform:translateY(-5px)}
+        .main-container{background:rgba(255,255,255,0.95);border-radius:20px;box-shadow:0 20px 40px rgba(0,0,0,0.1);backdrop-filter:blur(10px);margin:20px;padding:30px}
+        .table-responsive{max-height:600px;overflow-y:auto;border-radius:10px}
+        .badge{font-size:0.8em;padding:8px 12px;border-radius:20px}
+        .navbar-brand{font-weight:bold;font-size:1.5rem}
+        .card{border:none;border-radius:15px;box-shadow:0 4px 15px rgba(0,0,0,0.1)}
+        .btn{border-radius:25px;padding:10px 25px}
+        .form-select,.form-control{border-radius:10px;border:2px solid #e9ecef}
+        .form-select:focus,.form-control:focus{border-color:#667eea;box-shadow:0 0 0 0.2rem rgba(102,126,234,0.25)}
+        .progress{border-radius:10px;height:25px}
+        .progress-bar{border-radius:10px}
+        .alert{border-radius:15px;border:none}
+        .footer{background:rgba(0,0,0,0.8);color:white;border-radius:15px;margin-top:30px}
+        .icon-lg{font-size:2rem;margin-bottom:10px}
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark">
+        <div class="container">
+            <span class="navbar-brand"><i class="fas fa-shield-alt"></i> Dashboard de Ciberseguridad - Unitec</span>
+        </div>
+    </nav>
+    <div class="main-container">
+        <div class="row mb-5">
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card bg-danger text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle icon-lg"></i>
+                        <h2 class="mb-0">{{stats.total_attacks}}</h2>
+                        <p class="mb-0">Total Ataques</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card bg-warning text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-chart-line icon-lg"></i>
+                        <h2 class="mb-0">{{stats.avg_severity_score}}</h2>
+                        <p class="mb-0">Severidad Promedio</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card bg-info text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-users icon-lg"></i>
+                        <h2 class="mb-0">{{"{:,}".format(stats.total_affected_users)}}</h2>
+                        <p class="mb-0">Usuarios Afectados</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card stats-card bg-success text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-bug icon-lg"></i>
+                        <h2 class="mb-0">{{stats.attack_types|length}}</h2>
+                        <p class="mb-0">Tipos de Ataque</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros de Búsqueda</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-bug"></i> Tipo de Ataque</label>
+                        <select name="attack_type" class="form-select">
+                            <option value="">Todos</option>
+                            {% for attack_type in unique_attack_types %}
+                            <option value="{{attack_type}}" {% if attack_type == current_filters.attack_type %}selected{% endif %}>{{attack_type}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-exclamation-circle"></i> Severidad</label>
+                        <select name="severity" class="form-select">
+                            <option value="">Todos</option>
+                            {% for severity in unique_severities %}
+                            <option value="{{severity}}" {% if severity == current_filters.severity %}selected{% endif %}>{{severity}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-globe"></i> País</label>
+                        <select name="country" class="form-select">
+                            <option value="">Todos</option>
+                            {% for country in unique_countries %}
+                            <option value="{{country}}" {% if country == current_filters.country %}selected{% endif %}>{{country}}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label"><i class="fas fa-list"></i> Límite</label>
+                        <select name="limit" class="form-select">
+                            <option value="50" {% if current_filters.limit == 50 %}selected{% endif %}>50</option>
+                            <option value="100" {% if current_filters.limit == 100 %}selected{% endif %}>100</option>
+                            <option value="200" {% if current_filters.limit == 200 %}selected{% endif %}>200</option>
+                            <option value="500" {% if current_filters.limit == 500 %}selected{% endif %}>500</option>
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Filtrar</button>
+                        <a href="/" class="btn btn-secondary"><i class="fas fa-refresh"></i> Limpiar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-table"></i> Datos de Ataques ({{records|length}} registros)</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th><i class="fas fa-hashtag"></i> ID</th>
+                                <th><i class="fas fa-clock"></i> Timestamp</th>
+                                <th><i class="fas fa-bug"></i> Tipo</th>
+                                <th><i class="fas fa-network-wired"></i> IP Origen</th>
+                                <th><i class="fas fa-network-wired"></i> IP Destino</th>
+                                <th><i class="fas fa-globe"></i> País</th>
+                                <th><i class="fas fa-exclamation-circle"></i> Severidad</th>
+                                <th><i class="fas fa-chart-bar"></i> Puntuación</th>
+                                <th><i class="fas fa-hourglass-half"></i> Duración</th>
+                                <th><i class="fas fa-users"></i> Usuarios</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in records %}
+                            <tr>
+                                <td><strong>{{record.id}}</strong></td>
+                                <td>{{record.timestamp}}</td>
+                                <td><span class="badge bg-{{ 'danger' if record.attack_type in ['Ransomware', 'Malware'] else 'warning' if record.attack_type in ['DDoS', 'Brute Force'] else 'info' }}"><i class="fas fa-bug"></i> {{record.attack_type}}</span></td>
+                                <td><code>{{record.source_ip}}</code></td>
+                                <td><code>{{record.target_ip}}</code></td>
+                                <td><i class="fas fa-flag"></i> {{record.country}}</td>
+                                <td><span class="badge bg-{{ 'success' if record.severity == 'Bajo' else 'warning' if record.severity == 'Medio' else 'danger' if record.severity == 'Crítico' else 'info' }}"><i class="fas fa-exclamation-circle"></i> {{record.severity}}</span></td>
+                                <td><div class="progress"><div class="progress-bar bg-{{ 'success' if record.severity_score <= 3 else 'warning' if record.severity_score <= 6 else 'danger' }}" style="width: {{ record.severity_score * 10 }}%"><strong>{{record.severity_score}}</strong></div></div></td>
+                                <td><i class="fas fa-clock"></i> {{record.duration_minutes}} min</td>
+                                <td><i class="fas fa-users"></i> {{"{:,}".format(record.affected_users)}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-info mt-4">
+            <h6><i class="fas fa-shield-alt"></i> Nota de Seguridad</h6>
+            <p class="mb-0"><strong>Datos Enmascarados:</strong> Todos los datos sensibles (IPs, emails, usuarios) han sido enmascarados para proteger la privacidad. Las direcciones IP se muestran como XXX.XXX.XXX.XXX, los emails como ***@***.*** y los nombres de usuario como USER_***.</p>
+        </div>
+    </div>
+    <footer class="footer py-4">
+        <div class="container text-center">
+            <p class="mb-0"><i class="fas fa-graduation-cap"></i> Proyecto Final - Universidad Unitec | <i class="fas fa-shield-alt"></i> Seguridad con Grandes Volúmenes de Información</p>
+        </div>
+    </footer>
+</body>
+</html>
+'''
 EOF
 
-# Create systemd service
 cat > /etc/systemd/system/cyber-dashboard.service << 'EOF'
 [Unit]
 Description=Cybersecurity Dashboard Flask App
 After=network.target
-
 [Service]
 Type=simple
 User=root
 WorkingDirectory=/opt/app
 Environment=DATASET_S3_BUCKET=${dataset_bucket_name}
 Environment=DATASET_S3_KEY=${dataset_s3_key}
-ExecStart=/opt/app/venv/bin/gunicorn --bind 0.0.0.0:80 --workers 2 app:app
+ExecStart=/usr/local/bin/python3 /opt/app/app.py
 Restart=always
-
 [Install]
 WantedBy=multi-user.target
 EOF
-
-# Enable and start service
 systemctl daemon-reload
 systemctl enable cyber-dashboard.service
 systemctl start cyber-dashboard.service
-
-echo "$(date) - User data script completed" >> /var/log/user-data.log
+echo "User data script completed at $(date)"

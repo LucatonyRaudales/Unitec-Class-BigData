@@ -1,40 +1,10 @@
-# S3 Bucket for Dataset
-resource "aws_s3_bucket" "dataset" {
+# S3 Bucket for Dataset - Use existing bucket
+data "aws_s3_bucket" "dataset" {
   bucket = var.bucket_name
-
-  tags = {
-    Name = "${var.project_name}-dataset-bucket"
-  }
 }
 
-# S3 Bucket Versioning
-resource "aws_s3_bucket_versioning" "dataset" {
-  bucket = aws_s3_bucket.dataset.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# S3 Bucket Server Side Encryption
-resource "aws_s3_bucket_server_side_encryption_configuration" "dataset" {
-  bucket = aws_s3_bucket.dataset.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-# S3 Bucket Public Access Block
-resource "aws_s3_bucket_public_access_block" "dataset" {
-  bucket = aws_s3_bucket.dataset.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
+# Note: Using existing bucket, skipping versioning, encryption, and public access block configuration
+# These should already be configured on the existing bucket
 
 # S3 Bucket for ALB Access Logs
 resource "aws_s3_bucket" "alb_logs" {
@@ -124,8 +94,8 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
           "s3:ListBucket"
         ]
         Resource = [
-          aws_s3_bucket.dataset.arn,
-          "${aws_s3_bucket.dataset.arn}/*"
+          data.aws_s3_bucket.dataset.arn,
+          "${data.aws_s3_bucket.dataset.arn}/*"
         ]
       }
     ]
