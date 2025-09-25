@@ -16,7 +16,7 @@ data "aws_ami" "amazon_linux" {
 
 # User data for Next.js deployment
 locals {
-  user_data = file("${path.root}/templates/deploy_dashboard.sh")
+  user_data = file("${path.root}/templates/deploy_simple.sh")
 }
 
 # EC2 Instance for Next.js app
