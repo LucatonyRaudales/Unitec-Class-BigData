@@ -14,12 +14,9 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-# User data template for Next.js deployment
+# User data for Next.js deployment
 locals {
-  user_data = templatefile("${path.root}/templates/deploy_dashboard.sh.tftpl", {
-    dataset_bucket_name = var.dataset_bucket_name
-    dataset_s3_key      = var.dataset_s3_key
-  })
+  user_data = file("${path.root}/templates/deploy_dashboard.sh")
 }
 
 # EC2 Instance for Next.js app
