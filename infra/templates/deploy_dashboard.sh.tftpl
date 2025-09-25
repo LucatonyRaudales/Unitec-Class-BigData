@@ -55,7 +55,7 @@ module.exports = {
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',
-      PORT: 3000,
+      PORT: 80,  # CAMBIO: Puerto 80 para coincidir con Target Group
       DATASET_S3_BUCKET: '${dataset_bucket_name}',
       DATASET_S3_KEY: '${dataset_s3_key}'
     }
@@ -72,6 +72,15 @@ pm2 save
 # Configure PM2 to start on boot
 pm2 startup systemd -u root --hp /root
 
+# CAMBIO: Crear endpoint /health para health checks
+cat > /opt/cyber-dashboard/cyber-dashboard/public/health.html << 'EOF'
+<!DOCTYPE html>
+<html>
+<head><title>Health Check</title></head>
+<body>OK</body>
+</html>
+EOF
+
 # Install and configure Nginx as reverse proxy
 dnf install -y nginx
 
@@ -82,7 +91,7 @@ server {
     server_name _;
     
     location / {
-        proxy_pass http://localhost:3000;
+        proxy_pass http://localhost:80;  # CAMBIO: Puerto 80 para Next.js
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
