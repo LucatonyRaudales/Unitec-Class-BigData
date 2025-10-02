@@ -77,7 +77,7 @@ export default function Dashboard() {
             <div className="absolute inset-0 animate-ping rounded-full h-32 w-32 border-4 border-purple-500/30 mx-auto"></div>
           </div>
           <h2 className="text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent mb-4">
-            🛡️ CyberShield
+            🛡️ UNITEC SHIELD
           </h2>
           <p className="text-purple-200 text-lg animate-pulse">
             Analizando datos de ciberseguridad...
@@ -152,7 +152,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h1 className="text-4xl font-black bg-gradient-to-r from-white via-purple-200 to-pink-200 bg-clip-text text-transparent drop-shadow-lg">
-                    🛡️ CyberShield
+                    🛡️ UNITEC SHIELD
                   </h1>
                   <p className="text-purple-200 font-semibold text-lg">
                     Dashboard de Inteligencia en Ciberseguridad
@@ -289,7 +289,7 @@ export default function Dashboard() {
                   <Shield className="h-8 w-8 text-blue-400" />
                 </div>
                 <h3 className="text-2xl font-bold text-white">
-                  CyberShield Dashboard
+                Unitec Dashboard
                 </h3>
               </div>
               <p className="text-gray-300 text-lg mb-6">
