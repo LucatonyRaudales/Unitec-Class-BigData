@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CyberAttack, AttackStats, FilterOptions } from '@/types/cyber';
-import { fetchCyberData, calculateStats } from '@/lib/data';
-import { StatsCards } from '@/components/StatsCards';
-import { Charts } from '@/components/Charts';
-import { FilterPanel } from '@/components/FilterPanel';
-import { DataTable } from '@/components/DataTable';
+import { CyberAttack, AttackStats, FilterOptions } from '../types/cyber';
+import { fetchCyberData, calculateStats } from '../lib/data';
+import { StatsCards } from '../components/StatsCards';
+import { Charts } from '../components/Charts';
+import { FilterPanel } from '../components/FilterPanel';
+import { DataTable } from '../components/DataTable';
 import { Shield, AlertCircle, Loader2, Zap, Eye, Brain, Lock } from 'lucide-react';
 import './globals.css';
 export default function Dashboard() {

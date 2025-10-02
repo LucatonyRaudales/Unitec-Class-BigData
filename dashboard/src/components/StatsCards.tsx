@@ -1,4 +1,4 @@
-import { AttackStats } from '@/types/cyber';
+import { AttackStats } from '../types/cyber';
 import { Shield, AlertTriangle, Users, Target, TrendingUp, Activity } from 'lucide-react';
 
 interface StatsCardsProps {

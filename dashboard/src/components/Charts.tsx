@@ -1,4 +1,4 @@
-import { AttackStats } from '@/types/cyber';
+import { AttackStats } from '../types/cyber';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { TrendingUp, BarChart3, PieChart as PieChartIcon } from 'lucide-react';
 
