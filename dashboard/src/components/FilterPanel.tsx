@@ -1,4 +1,4 @@
-import { CyberAttack, FilterOptions } from '@/types/cyber';
+import { CyberAttack, FilterOptions } from '@Unitec-Class-BigData/types/cyber';
 import { Search, Filter, RotateCcw, Eye } from 'lucide-react';
 
 interface FilterPanelProps {

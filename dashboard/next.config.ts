@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
   // images: {
   //   unoptimized: true, // Solo necesario para exportación estática
   // },
+  // Configuración de puerto por defecto
+  env: {
+    PORT: process.env.PORT || '3001',
+  },
 };
 
 export default nextConfig;

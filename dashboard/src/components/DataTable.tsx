@@ -1,4 +1,4 @@
-import { CyberAttack, FilterOptions } from '@/types/cyber';
+import { CyberAttack, FilterOptions } from '@Unitec-Class-BigData/types/cyber';
 import { Shield, AlertTriangle, Clock, Users, MapPin, Activity } from 'lucide-react';
 
 interface DataTableProps {
